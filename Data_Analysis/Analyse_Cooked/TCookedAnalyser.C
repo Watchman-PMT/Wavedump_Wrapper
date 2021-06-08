@@ -404,8 +404,51 @@ double TCookedAnalyser::base_average(int iEntry){
     
   double sum = std::accumulate(amplitude.begin(), amplitude.end(), 0.0);
   double mean = sum/NSamples;
-
+  
   return mean;
+
+}
+
+double TCookedAnalyser::base(int iEntry){
+
+  std::vector<double> amplitude;
+
+  for( short iSamp = 0 ; iSamp < NSamples; iSamp++)
+    amplitude.push_back(ADC_To_Wave(ADC->at(iSamp)));
+    
+  double sum = std::accumulate(amplitude.begin(), amplitude.end(), 0.0);
+  double mean = sum/NSamples;
+  
+  //need baseline subtraction here
+  
+  std::vector<double> base_sub;
+  
+  for( int isamp = 0; isamp < NSamples; isamp++){
+    base_sub.push_back(amplitude[isamp]-mean);
+  }
+  
+  double var = 0.;
+  
+  for (int n = 0; n < NSamples; n++){
+    var += pow(base_sub[n]-mean,2);
+  }
+
+  var /= NSamples;
+  double sdev = sqrt(var);
+  
+  std::vector<double> av_base;
+  int nSamp = 0;
+  for (int N = 0; N < NSamples; N++){
+    if (sqrt(pow(base_sub[N]-mean,2)) <= 3*sdev){
+      av_base.push_back(base_sub[N]);
+      nSamp++;
+    }
+  }
+  
+  double baseline = std::accumulate(av_base.begin(), av_base.end(), 0.0);
+  baseline /= nSamp;
+
+  return baseline;
 
 }
 

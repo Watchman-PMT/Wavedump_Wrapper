@@ -324,15 +324,25 @@ float TCooker::Amp_Scaled_Wave_To_Unscaled_Wave(float wave){
 }
 
 bool TCooker::IsSampleInBaseline(short iSample){
-  
-  float sampTime = (float)iSample * SampleToTime();
-  float width    = 50.;
+  // adjust this function to use most populous voltage bin(s)?
+  // use ADC_To_Wave to convert ADC to mV
+  float sampTime = (float)iSample * SampleToTime(); //convert sample to time
+  float width    = 50.; // sets baseline to first 50 ns
   
   if( sampTime <= width)
     return true;
   else
     return false;
 }
+
+/*float TCooker::Baseline(short ADC){
+// need ADC in
+// find most populous bin
+// convert this to voltage
+// set this as baseline
+// create bool function like IsSampleInBaseline (?)
+
+}*/
 
 //------------------------------
 
