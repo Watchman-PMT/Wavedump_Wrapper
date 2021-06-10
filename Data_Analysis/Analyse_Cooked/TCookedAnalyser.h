@@ -156,6 +156,8 @@ class TCookedAnalyser {
 
   double base_average(int iEntry);
   double base(int iEntry);
+  TH1F * lin_reg1 = nullptr;
+  TH1F * lin_reg2 = nullptr;
   double average;
   int peak_rise(float thesh_mV = 10., int nbins = 10);
   void  Dark(float thresh_mV = 10.);

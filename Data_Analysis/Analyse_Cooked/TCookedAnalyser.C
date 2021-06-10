@@ -411,21 +411,41 @@ double TCookedAnalyser::base_average(int iEntry){
 
 double TCookedAnalyser::base(int iEntry){
 
+  // determine waveform, mean amplitude in mV
+
   std::vector<double> amplitude;
 
   for( short iSamp = 0 ; iSamp < NSamples; iSamp++)
     amplitude.push_back(ADC_To_Wave(ADC->at(iSamp)));
     
-  double sum = std::accumulate(amplitude.begin(), amplitude.end(), 0.0);
-  double mean = sum/NSamples;
-  
-  //need baseline subtraction here
+  double mean = std::accumulate(amplitude.begin(), amplitude.end(), 0.0);
+  mean /= NSamples;
+    
+  // baseline subtraction
   
   std::vector<double> base_sub;
   
   for( int isamp = 0; isamp < NSamples; isamp++){
     base_sub.push_back(amplitude[isamp]-mean);
   }
+  
+  // need linear regression in here
+  
+  lin_reg1 = new TH1F("lin_reg1","First linear slope correction",NSamples,0,Length_ns);
+  for (int bn = 0; bn < NSamples; bn++){
+    lin_reg1->Fill(base_sub[bn]);
+  }
+  
+  lin_reg1->Fit("pol1","Q");
+  
+  double p0_lin1 = lin_reg1->GetFunction("pol1")->GetParameter(0);
+  double p1_lin1 = lin_reg1->GetFunction("pol1")->GetParameter(1);
+  double p0_err_lin1 = lin_reg1->GetFunction("pol1")->GetParError(0);
+  double p1_err_lin1 = lin_reg1->GetFunction("pol1")->GetParError(1);
+  
+  delete lin_reg1;
+  
+  // variance/stdev
   
   double var = 0.;
   
@@ -436,18 +456,58 @@ double TCookedAnalyser::base(int iEntry){
   var /= NSamples;
   double sdev = sqrt(var);
   
-  std::vector<double> av_base;
-  int nSamp = 0;
+  // outlier removal
+  
+  std::vector<double> base_out;
+  //int nSamp = 0;
   for (int N = 0; N < NSamples; N++){
-    if (sqrt(pow(base_sub[N]-mean,2)) <= 3*sdev){
-      av_base.push_back(base_sub[N]);
-      nSamp++;
+    if (sqrt(pow(base_sub[N]-mean,2)) >= 3*sdev){
+      base_out.push_back(0);
+      //nSamp++;
     }
+    else
+      base_out.push_back(base_sub[N]);
   }
   
-  double baseline = std::accumulate(av_base.begin(), av_base.end(), 0.0);
-  baseline /= nSamp;
+  // second mean baseline - need to subtract from av_base
+  
+  double mean2 = std::accumulate(base_out.begin(), base_out.end(), 0.0);
+  mean2 /= NSamples;
+    
+  // second baseline subtraction
+  
+  std::vector<double> base_sub2;
+  
+  for( int isamp = 0; isamp < NSamples; isamp++){
+    base_sub2.push_back(base_out[isamp]-mean2);
+  }
 
+  // need second linear correction
+  
+  lin_reg2 = new TH1F("lin_reg2","Second linear slope correction",NSamples,0,Length_ns);
+  for (int bn2 = 0; bn2 < NSamples; bn2++){
+    lin_reg2->Fill(base_sub2[bn2]);
+  }
+  
+  lin_reg2->Fit("pol1","Q");
+  
+  double p0_lin2 = lin_reg2->GetFunction("pol1")->GetParameter(0);
+  double p1_lin2 = lin_reg2->GetFunction("pol1")->GetParameter(1);
+  double p0_err_lin2 = lin_reg2->GetFunction("pol1")->GetParError(0);
+  double p1_err_lin2 = lin_reg2->GetFunction("pol1")->GetParError(1);
+  
+  delete lin_reg2;
+  
+  // final mean to give baseline in mV
+  // everything fine to here, baseline accumulate giving 0
+  //double baseline = std::accumulate(base_sub2.begin(), base_sub2.end(), 0.0);
+  double baseline = 0.0;
+  for(int I = 0; I < base_sub2.size(); I++){
+    baseline += base_sub2[I];
+    //printf("base_sub2 (%i) = %f\n",I,base_sub2[I]);
+  }
+  baseline /= NSamples;
+  
   return baseline;
 
 }
@@ -570,6 +630,8 @@ void TCookedAnalyser::Dark(float thresh_mV){
     dark_csv << iEntry << "\n";
     
     nDark++;
+    double baseline = base(iEntry);
+    printf("Baseline (dark count) = %.3f\n",baseline);
     
   }
 
