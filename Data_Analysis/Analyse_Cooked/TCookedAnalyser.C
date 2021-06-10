@@ -437,7 +437,7 @@ double TCookedAnalyser::base(int iEntry){
   
   lin_reg1 = new TH1F("lin_reg1","First linear slope correction",NSamples,0,Length_ns);
   for (int iSamp = 0; iSamp < NSamples; iSamp++){
-    lin_reg1->Fill(base_sub[iSamp]);
+    lin_reg1->Fill(base_sub[iSamp]); //try and draw this to see what is being fitted -> may be filling the data incorrectly? -> could try and draw (Q option) then fit
   }
   
   lin_reg1->Fit("pol1","Q");
@@ -450,7 +450,7 @@ double TCookedAnalyser::base(int iEntry){
   
   // first linear regression correction
   
-  std::vector<double> base_lin1;
+  std::vector<double> base_lin1;// = base_sub;
   printf("baseline1 = [");
   for( int iSamp = 0; iSamp < NSamples; iSamp++){
     base_lin1.push_back(base_sub[iSamp] - p0_lin1 - (p1_lin1*iSamp*nsPerSamp));
@@ -472,12 +472,10 @@ double TCookedAnalyser::base(int iEntry){
   // outlier removal
   
   std::vector<double> base_out;
-  //int nSamp = 0;
   printf("base_out = [");
   for (int iSamp = 0; iSamp < NSamples; iSamp++){
     if (sqrt(pow(base_lin1[iSamp]-mean,2)) >= 3*sdev){
       base_out.push_back(0);
-      //nSamp++;
     }
     else
       base_out.push_back(base_lin1[iSamp]);
@@ -519,7 +517,7 @@ double TCookedAnalyser::base(int iEntry){
   
   // second linear regression correction
   
-  std::vector<double> base_lin2;
+  std::vector<double> base_lin2;// = base_sub2;
   printf("baseline2 = [");
   for( int iSamp = 0; iSamp < NSamples; iSamp++){
     base_lin2.push_back(base_sub2[iSamp] - p0_lin2 - (p1_lin2*iSamp*nsPerSamp));
