@@ -414,49 +414,50 @@ double TCookedAnalyser::base(int iEntry){
   // determine waveform, mean amplitude in mV
 
   std::vector<double> amplitude;
-  printf("wave = [");
+  //printf("wave = [");
   for( int iSamp = 0 ; iSamp < NSamples; iSamp++){
     amplitude.push_back(ADC_To_Wave(ADC->at(iSamp)));
-    printf("%f,\n",ADC_To_Wave(ADC->at(iSamp)));
+    //printf("%f,\n",ADC_To_Wave(ADC->at(iSamp)));
   }
-  printf("]\n");
+  //printf("]\n");
   double mean = std::accumulate(amplitude.begin(), amplitude.end(), 0.0);
   mean /= NSamples;
     
   // baseline subtraction
   
   std::vector<double> base_sub;
-  printf("base_sub = [");
+  //printf("base_sub = [");
   for( int iSamp = 0; iSamp < NSamples; iSamp++){
     base_sub.push_back(amplitude[iSamp]-mean);
-    printf("%f,\n",amplitude[iSamp]-mean);
+    //printf("%f,\n",amplitude[iSamp]-mean);
   }
-  printf("]\n");
+  //printf("]\n");
   
   // first linear regression
   
-  lin_reg1 = new TH1F("lin_reg1","First linear slope correction",NSamples,0,Length_ns);
+  TH1F* lin_reg1 = new TH1F("lin_reg1","First linear slope correction",NSamples,0,Length_ns);
   for (int iSamp = 0; iSamp < NSamples; iSamp++){
-    lin_reg1->Fill(base_sub[iSamp]); //try and draw this to see what is being fitted -> may be filling the data incorrectly? -> could try and draw (Q option) then fit
+    //lin_reg1->Fill(base_sub[iSamp]); //try and draw this to see what is being fitted -> may be filling the data incorrectly? -> could try and draw (Q option) then fit
+    lin_reg1->SetBinContent(iSamp+1,base_sub[iSamp]);
   }
   
   lin_reg1->Fit("pol1","Q");
   
   double p0_lin1 = lin_reg1->GetFunction("pol1")->GetParameter(0);
   double p1_lin1 = lin_reg1->GetFunction("pol1")->GetParameter(1);
-  printf("p0_lin1 = %f\np1_lin1 = %f\n",p0_lin1,p1_lin1);
+  //printf("p0_lin1 = %f\np1_lin1 = %f\n",p0_lin1,p1_lin1);
   
   delete lin_reg1;
   
   // first linear regression correction
   
   std::vector<double> base_lin1;// = base_sub;
-  printf("baseline1 = [");
+  //printf("baseline1 = [");
   for( int iSamp = 0; iSamp < NSamples; iSamp++){
     base_lin1.push_back(base_sub[iSamp] - p0_lin1 - (p1_lin1*iSamp*nsPerSamp));
-    printf("%f,\n",base_sub[iSamp] - p0_lin1 - (p1_lin1*iSamp*nsPerSamp));
+    //printf("%f,\n",base_sub[iSamp] - p0_lin1 - (p1_lin1*iSamp*nsPerSamp));
   }
-  printf("]\n");
+  //printf("]\n");
   
   // variance/stdev
   
@@ -472,18 +473,18 @@ double TCookedAnalyser::base(int iEntry){
   // outlier removal
   
   std::vector<double> base_out;
-  printf("base_out = [");
+  //printf("base_out = [");
   for (int iSamp = 0; iSamp < NSamples; iSamp++){
-    if (sqrt(pow(base_lin1[iSamp]-mean,2)) >= 3*sdev){
+    if (sqrt(pow(base_lin1[iSamp]-mean,2)) >= 1*sdev){
       base_out.push_back(0);
     }
     else
       base_out.push_back(base_lin1[iSamp]);
   }
-  for (int iSamp = 0; iSamp < NSamples; iSamp++){
-    printf("%f,\n",base_out[iSamp]);
-  }
-  printf("]\n");
+  //for (int iSamp = 0; iSamp < NSamples; iSamp++){
+    //printf("%f,\n",base_out[iSamp]);
+  //}
+  //printf("]\n");
   
   // second mean baseline
   
@@ -493,37 +494,38 @@ double TCookedAnalyser::base(int iEntry){
   // second baseline subtraction
   
   std::vector<double> base_sub2;
-  printf("base_sub2 = [");
+  //printf("base_sub2 = [");
   for( int iSamp = 0; iSamp < NSamples; iSamp++){
     base_sub2.push_back(base_out[iSamp]-mean2);
-    printf("%f,\n",base_out[iSamp]-mean2);
+    //printf("%f,\n",base_out[iSamp]-mean2);
   }
-  printf("]\n");
+  //printf("]\n");
 
   // second linear regression
   
-  lin_reg2 = new TH1F("lin_reg2","Second linear slope correction",NSamples,0,Length_ns);
+  TH1F* lin_reg2 = new TH1F("lin_reg2","Second linear slope correction",NSamples,0,Length_ns);
   for (int iSamp = 0; iSamp < NSamples; iSamp++){
-    lin_reg2->Fill(base_sub2[iSamp]);
+    //lin_reg2->Fill(base_sub2[iSamp]);
+    lin_reg2->SetBinContent(iSamp+1,base_sub2[iSamp]);
   }
   
   lin_reg2->Fit("pol1","Q");
   
   double p0_lin2 = lin_reg2->GetFunction("pol1")->GetParameter(0);
   double p1_lin2 = lin_reg2->GetFunction("pol1")->GetParameter(1);
-  printf("p0_lin2 = %f\np1_lin2 = %f\n",p0_lin2,p1_lin2);
+  //printf("p0_lin2 = %f\np1_lin2 = %f\n",p0_lin2,p1_lin2);
   
   delete lin_reg2;
   
   // second linear regression correction
   
   std::vector<double> base_lin2;// = base_sub2;
-  printf("baseline2 = [");
+  //printf("baseline2 = [");
   for( int iSamp = 0; iSamp < NSamples; iSamp++){
     base_lin2.push_back(base_sub2[iSamp] - p0_lin2 - (p1_lin2*iSamp*nsPerSamp));
-    printf("%f,\n",base_sub2[iSamp] - p0_lin2 - (p1_lin2*iSamp*nsPerSamp));
+    //printf("%f,\n",base_sub2[iSamp] - p0_lin2 - (p1_lin2*iSamp*nsPerSamp));
   }
-  printf("]\n");
+  //printf("]\n");
   
   // final mean to give baseline in mV -> surely need whole corrected data set?
   
