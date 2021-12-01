@@ -553,7 +553,7 @@ std::pair<double,std::vector<double>> TCookedAnalyser::base(int iEntry){
 
 int TCookedAnalyser::peak_rise(float thresh_mV, int nbins){
 
-  double thresh = base_mV+0.5*peak_mV;//base_mV + thresh_mV;
+  double thresh = base_mV+0.25*peak_mV;//base_mV + thresh_mV;
   
   std::vector<double> amplitude;
 
