@@ -409,7 +409,7 @@ double TCookedAnalyser::base_average(int iEntry){
 
 }
 
-double TCookedAnalyser::base(int iEntry){
+std::pair<double,std::vector<double>> TCookedAnalyser::base(int iEntry){
 
   // determine waveform, mean amplitude in mV
 
@@ -435,7 +435,7 @@ double TCookedAnalyser::base(int iEntry){
   
   // first linear regression
   
-  TH1F* lin_reg1 = new TH1F("lin_reg1","First linear slope correction",NSamples,0,Length_ns);
+  TH1F* lin_reg1 = new TH1F("lin_reg1","First linear slope correction",base_sub.size(),0,Length_ns);
   for (int iSamp = 0; iSamp < NSamples; iSamp++){
     //lin_reg1->Fill(base_sub[iSamp]); //try and draw this to see what is being fitted -> may be filling the data incorrectly? -> could try and draw (Q option) then fit
     lin_reg1->SetBinContent(iSamp+1,base_sub[iSamp]);
@@ -476,7 +476,8 @@ double TCookedAnalyser::base(int iEntry){
   //printf("base_out = [");
   for (int iSamp = 0; iSamp < NSamples; iSamp++){
     if (sqrt(pow(base_lin1[iSamp]-mean,2)) >= 1*sdev){
-      base_out.push_back(0);
+      //base_out.push_back(base_lin1[iSamp-1]); //Try skipping these for the fit
+      continue;
     }
     else
       base_out.push_back(base_lin1[iSamp]);
@@ -492,19 +493,25 @@ double TCookedAnalyser::base(int iEntry){
   mean2 /= NSamples;
     
   // second baseline subtraction
-  
+  std::vector<double> base_all_sub2;
   std::vector<double> base_sub2;
   //printf("base_sub2 = [");
-  for( int iSamp = 0; iSamp < NSamples; iSamp++){
-    base_sub2.push_back(base_out[iSamp]-mean2);
+  int NSamples_removed = base_out.size();
+  //printf("NSamples_removed = %i\n",NSamples_removed);
+  for( int iSamp = 0; iSamp < NSamples_removed; iSamp++){
+    base_sub2.push_back(base_out[iSamp]-mean2); //apply to data with AND without outlier
     //printf("%f,\n",base_out[iSamp]-mean2);
   }
   //printf("]\n");
+  for( int iSamp = 0; iSamp < NSamples; iSamp++){
+    base_all_sub2.push_back(base_lin1[iSamp]-mean2); //apply to data with AND without outlier
+    //printf("%f,\n",base_out[iSamp]-mean2);
+  }
 
   // second linear regression
   
-  TH1F* lin_reg2 = new TH1F("lin_reg2","Second linear slope correction",NSamples,0,Length_ns);
-  for (int iSamp = 0; iSamp < NSamples; iSamp++){
+  TH1F* lin_reg2 = new TH1F("lin_reg2","Second linear slope correction",NSamples_removed,0,nsPerSamp*NSamples_removed);
+  for (int iSamp = 0; iSamp < NSamples_removed; iSamp++){
     //lin_reg2->Fill(base_sub2[iSamp]);
     lin_reg2->SetBinContent(iSamp+1,base_sub2[iSamp]);
   }
@@ -519,10 +526,18 @@ double TCookedAnalyser::base(int iEntry){
   
   // second linear regression correction
   
+  std::vector<double> base_lin_all2;// = base_sub2;
+  //printf("data = [");
+  for( int iSamp = 0; iSamp < NSamples; iSamp++){
+    base_lin_all2.push_back(base_all_sub2[iSamp] - p0_lin2 - (p1_lin2*iSamp*nsPerSamp)); //Fit to data without outlier, correct data with outlier
+    //printf("%f,\n",base_all_sub2[iSamp] - p0_lin2 - (p1_lin2*iSamp*nsPerSamp));
+  }
+  //printf("]\n");
+
   std::vector<double> base_lin2;// = base_sub2;
   //printf("baseline2 = [");
-  for( int iSamp = 0; iSamp < NSamples; iSamp++){
-    base_lin2.push_back(base_sub2[iSamp] - p0_lin2 - (p1_lin2*iSamp*nsPerSamp));
+  for( int iSamp = 0; iSamp < NSamples_removed; iSamp++){
+    base_lin2.push_back(base_sub2[iSamp] - p0_lin2 - (p1_lin2*iSamp*nsPerSamp)); //Fit to data without outlier, correct data with outlier
     //printf("%f,\n",base_sub2[iSamp] - p0_lin2 - (p1_lin2*iSamp*nsPerSamp));
   }
   //printf("]\n");
@@ -532,7 +547,7 @@ double TCookedAnalyser::base(int iEntry){
   double baseline = std::accumulate(base_lin2.begin(), base_lin2.end(), 0.0);
   baseline /= NSamples;
   
-  return baseline;
+  return std::make_pair(baseline,base_lin_all2);
 
 }
 
@@ -602,19 +617,20 @@ void TCookedAnalyser::Dark(float thresh_mV){
   
   for (int iEntry = 0; iEntry < nentries; iEntry++) {
     cookedTree->GetEntry(iEntry);
-     
+    //printf("Entry = %i, peak_mV = %f, thresh_mV = %f\n",iEntry,peak_mV,thresh_mV);
     if(peak_mV > thresh_mV)
       nDark_noise++;
 
     // Noise Rejection 
-    if( min_mV < -2.5 && peak_mV < thresh_mV)
-      continue;
+    if( min_mV < -2.5 && peak_mV < thresh_mV){
+      //printf("Entry = %i, peak_mV = %f, thresh_mV = %f\n",iEntry,peak_mV,thresh_mV);
+      continue;}
     
-    if( peak_mV < -2*min_mV && peak_mV > thresh_mV )
-      continue;
+    if( peak_mV < -2*min_mV && peak_mV > thresh_mV ){
+      continue;}
       
-    if( peak_mV < 2*min_mV && peak_mV > thresh_mV )
-      continue;
+    if( peak_mV < 2*min_mV && peak_mV > thresh_mV ){
+      continue;}
       
     hD_Peak->Fill(peak_mV);
     hD_Min_Peak->Fill(min_mV,peak_mV);
@@ -623,25 +639,42 @@ void TCookedAnalyser::Dark(float thresh_mV){
       peak_low++;
       continue;}
     
-    average = base_average(iEntry);
-    
-    if( average < -10){
-      rejected_waveforms << iEntry << "\n";
-      rejected++;
-      av_neg_rej++;
-      continue;}
-      
-    if( average > 10){
-      rejected_waveforms << iEntry << "\n";
-      rejected++;
-      av_pos_rej++;
-      continue;}
-      
-    if( peak_mV > 100){
+    std::pair<double,std::vector<double>> base_corrections = base(iEntry);
+    double baseline = base_corrections.first;
+    std::vector<double> wave_corrected = base_corrections.second;
+    auto max_wave = std::max_element(wave_corrected.begin(), wave_corrected.end());
+    double max_mV = *max_wave;
+    //printf("Max of waveform = %f mV\n",max_mV);
+
+    if(max_mV > 80+baseline){
       rejected_waveforms << iEntry << "\n";
       rejected++;
       peak_high++;
       continue;}
+
+    if(max_mV < thresh_mV+baseline){
+      rejected_waveforms << iEntry << "\n";
+      rejected++;
+      peak_low++;
+      continue;}
+    // average = base_average(iEntry);
+    // if( average < -10){
+    //   rejected_waveforms << iEntry << "\n";
+    //   rejected++;
+    //   av_neg_rej++;
+    //   continue;}
+      
+    // if( average > 10){
+    //   rejected_waveforms << iEntry << "\n";
+    //   rejected++;
+    //   av_pos_rej++;
+    //   continue;}
+      
+    // if( peak_mV > 100){
+    //   rejected_waveforms << iEntry << "\n";
+    //   rejected++;
+    //   peak_high++;
+    //   continue;}
     
     int rise = peak_rise();
     
@@ -654,8 +687,11 @@ void TCookedAnalyser::Dark(float thresh_mV){
     dark_csv << iEntry << "\n";
     
     nDark++;
-    double baseline = base(iEntry);
-    printf("Baseline (dark count) = %e\n",baseline);
+    //printf("Max of waveform = %f mV\n",max_mV);
+    // std::pair<double,std::vector<double>> base_corrections = base(iEntry);
+    // double baseline = base_corrections.first;
+    // std::vector<double> wave_corrected = base_corrections.second;
+    // printf("Baseline (dark count) = %e mV\n",baseline);
     
   }
 

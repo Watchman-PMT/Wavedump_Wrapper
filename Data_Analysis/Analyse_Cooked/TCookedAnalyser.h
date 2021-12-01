@@ -155,7 +155,7 @@ class TCookedAnalyser {
   TH2F * hD_Min_Peak = nullptr;
 
   double base_average(int iEntry);
-  double base(int iEntry);
+  std::pair<double,std::vector<double>> base(int iEntry);
   //TH1D * lin_reg1 = nullptr;
   //TH1D * lin_reg2 = nullptr;
   double average;
